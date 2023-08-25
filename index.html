@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+    <title>Chess</title>
+    <link rel="stylesheet" href="css/index.css">
+
+
+</head>
+<body>
+<div id="myBoard" style="width: 400px; margin-left: 450px"></div>
+<div id="gamePGN" style="margin-left: 460px">PNG</div>
+
+<script src="js/chessBoardV2.js"></script>
+<script src="js/chess.js"></script>
+<script>
+    const game = new Chess()
+
+    const boardConfig = {
+        draggable: true,
+        onDragStart,
+        onTouchSquare,
+        onDrop,
+        onSnapEnd,
+        position: game.fen(),
+        touchMove: true
+    }
+    const board = Chessboard2('myBoard', boardConfig)
+
+    let pendingMove = null
+
+    function updatePGN () {
+        const pgnEl = document.getElementById('gamePGN')
+        pgnEl.innerHTML = game.pgn({ max_width: 5, newline_char: '<br />' })
+    }
+
+    function onTouchSquare(square, piece, boardInfo) {
+
+        const legalMoves = game.moves({square, verbose: true})
+
+
+        if (!pendingMove && legalMoves.length > 0) {
+            pendingMove = square
+
+
+            legalMoves.forEach(move => {
+                board.addCircle(move.to)
+            })
+
+
+        } else if (pendingMove && pendingMove === square) {
+            pendingMove = null
+            board.clearCircles()
+
+
+        } else if (pendingMove) {
+            const moveResult = game.move({
+                from: pendingMove,
+                to: square,
+                promotion: 'q'
+            })
+
+
+            if (moveResult) {
+
+                board.clearCircles()
+
+                board.position(game.fen()).then(() => {
+
+                    window.setTimeout(makeRandomMove, 1000)
+                })
+
+
+            } else if (piece) {
+                pendingMove = square
+
+
+                board.clearCircles()
+
+
+                legalMoves.forEach(m => {
+                    board.addCircle(m.to)
+                })
+
+
+            } else {
+                pendingMove = null
+                board.clearCircles()
+            }
+        }
+    }
+
+
+    function onDragStart(dragStartEvt) {
+
+
+        if (!isWhitePiece(dragStartEvt.piece)) return false
+
+
+        const legalMoves = game.moves({
+            square: dragStartEvt.square,
+            verbose: true
+        })
+
+
+        if (legalMoves.length === 0) return false
+
+        legalMoves.forEach((move) => {
+            board.addCircle(move.to)
+        })
+    }
+
+    function isWhitePiece(piece) {
+        return /^w/.test(piece)
+    }
+
+    function makeRandomMove () {
+        const possibleMoves = game.moves()
+
+        // game over
+        if (possibleMoves.length === 0) return
+
+        const randomIdx = Math.floor(Math.random() * possibleMoves.length)
+        game.move(possibleMoves[randomIdx])
+        board.position(game.fen(), (_positionInfo) => {
+            updatePGN()
+        })
+    }
+
+    function onDrop(dropEvt) {
+
+        const move = game.move({
+            from: dropEvt.source,
+            to: dropEvt.target,
+            promotion: 'q'
+        })
+
+
+        board.clearCircles()
+
+
+        if (move) {
+
+            pendingMove = null
+
+            board.fen(game.fen(), () => {
+                updatePGN()
+                window.setTimeout(makeRandomMove, 250)
+            })
+        } else {
+
+            pendingMove = null
+
+
+            return 'snapback'
+        }
+    }
+
+    function onSnapEnd() {
+        board.position(game.fen())
+    }
+</script>
+
+</body>
+</html>
